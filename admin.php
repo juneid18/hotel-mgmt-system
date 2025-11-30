@@ -53,6 +53,44 @@ session_start();
         $confirmedReservation = $bdHandler->getConfirmed();
         $totalCustomers = $cCommon->totalCustomersCount();
         $totalReservations = count($bdHandler->getAllBookings());
+
+        // additional stats: bookings by type and recent totals
+        $singleCount = 0;
+        $doubleCount = 0;
+        $weekCount = 0; // last 7 days
+        $monthCount = 0; // current month
+        $now = new DateTime();
+        $sevenDaysAgo = (clone $now)->modify('-7 days');
+        $currentMonth = (int)$now->format('n');
+        $currentYear = (int)$now->format('Y');
+
+        if (!empty($allBookings) && is_array($allBookings)) {
+            foreach ($allBookings as $b) {
+                // type count (case-insensitive)
+                $type = isset($b['type']) ? strtolower(trim($b['type'])) : '';
+                if ($type === 'single') {
+                    $singleCount++;
+                } elseif ($type === 'double') {
+                    $doubleCount++;
+                }
+
+                // timestamp parse and recent counts
+                $ts = isset($b['timestamp']) ? $b['timestamp'] : null;
+                if ($ts) {
+                    try {
+                        $d = new DateTime($ts);
+                        if ($d >= $sevenDaysAgo && $d <= $now) {
+                            $weekCount++;
+                        }
+                        if ((int)$d->format('n') === $currentMonth && (int)$d->format('Y') === $currentYear) {
+                            $monthCount++;
+                        }
+                    } catch (Exception $e) {
+                        // ignore parse errors
+                    }
+                }
+            }
+        }
     }
     if (isset($_SESSION["isAdmin"]) && isset($_SESSION["username"])) {
         $isSessionExists = true;
@@ -180,21 +218,75 @@ session_start();
                 <div class="d-flex justify-content-end mb-2">
                     <button id="print-reservation" class="btn btn-outline-secondary btn-sm">Print Reservation Report</button>
                 </div>
-                <div id="reservationSummary" class="mb-3" style="display: none;">
-                    <table class="table table-sm table-borderless">
-                        <tr>
-                            <th>Total reservations:</th>
-                            <td><?php echo isset($totalReservations) ? $totalReservations : 0; ?></td>
-                        </tr>
-                        <tr>
-                            <th>Confirmed:</th>
-                            <td><?php echo isset($confirmedReservation) ? $confirmedReservation : 0; ?></td>
-                        </tr>
-                        <tr>
-                            <th>Pending:</th>
-                            <td><?php echo isset($pendingReservation) ? $pendingReservation : 0; ?></td>
-                        </tr>
-                    </table>
+                <div id="reservationSummary" class="mb-3">
+                    <div class="row text-center">
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Total Reservations</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($totalReservations) ? $totalReservations : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-success text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Confirmed</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($confirmedReservation) ? $confirmedReservation : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Pending</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($pendingReservation) ? $pendingReservation : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-info text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">This Month</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($monthCount) ? $monthCount : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row text-center mt-2">
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Last 7 days</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($weekCount) ? $weekCount : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card" style="background:linear-gradient(90deg,#6f42c1,#007bff); color:#fff;">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Single bookings</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($singleCount) ? $singleCount : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card" style="background:linear-gradient(90deg,#ff7e5f,#feb47b); color:#fff;">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Double bookings</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($doubleCount) ? $doubleCount : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="card bg-light">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">&nbsp;</div>
+                                    <div class="h4 font-weight-bold">&nbsp;</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <table id="reservationDataTable" class="table table-striped table-bordered" cellspacing="0" width="100%">
                     <thead>
@@ -253,13 +345,33 @@ session_start();
                 <div class="d-flex justify-content-end mb-2">
                     <button id="print-customers" class="btn btn-outline-secondary btn-sm">Print Customers Report</button>
                 </div>
-                <div id="customersSummary" class="mb-3" style="display: none;">
-                    <table class="table table-sm table-borderless">
-                        <tr>
-                            <th>Total customers:</th>
-                            <td><?php echo isset($totalCustomers) ? $totalCustomers : 0; ?></td>
-                        </tr>
-                    </table>
+                <div id="customersSummary" class="mb-3">
+                    <div class="row text-center">
+                        <div class="col-sm-6 col-md-4 mb-2">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">Total Customers</div>
+                                    <div class="h4 font-weight-bold"><?php echo isset($totalCustomers) ? $totalCustomers : 0; ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-4 mb-2">
+                            <div class="card bg-light">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">&nbsp;</div>
+                                    <div class="h4 font-weight-bold">&nbsp;</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-4 mb-2">
+                            <div class="card bg-light">
+                                <div class="card-body py-2">
+                                    <div class="h6 mb-1">&nbsp;</div>
+                                    <div class="h4 font-weight-bold">&nbsp;</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <table id="customerTable" class="table table-bordered">
                     <thead class="thead-dark">
@@ -371,7 +483,7 @@ session_start();
   
     // Function to print specific report (includes summary + full data)
     function printTable(reportType) {
-        var printWindow = window.open('', '', 'height=700,width=1000');
+        var printWindow = window.open('', '', 'height=900,width=1100');
         var content = '';
         var title = '';
         var table = '';
@@ -392,35 +504,57 @@ session_start();
         }
 
         var today = new Date().toLocaleString();
+        // Build a clean, print-friendly HTML with repeating table headers and clear summary
         content = `
             <html>
                 <head>
                     <title>${title}</title>
+                    <meta charset="utf-8" />
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; color: #222; }
-                        h2 { text-align: center; color: #333; margin-bottom: 6px; }
-                        .report-info { text-align: center; margin-bottom: 6px; font-size: 12px; color: #666; }
-                        .summary-box { width: 100%; margin-top: 12px; }
-                        .summary-box table { width: auto; border-collapse: collapse; }
-                        .summary-box th { text-align: left; padding-right: 12px; color: #333; }
-                        .summary-box td { color: #222; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-                        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-                        th { background-color: #f8f9fa; font-weight: bold; }
-                        tr:nth-child(even) { background-color: #f9f9f9; }
                         @media print {
-                            body { margin: 0; padding: 10px; }
+                            @page { margin: 18mm; }
+                            body { -webkit-print-color-adjust: exact; }
                         }
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #222; margin: 12px; }
+                        .header { display:flex; align-items:center; gap:12px; }
+                        .logo { width:48px; height:48px; object-fit:contain; }
+                        .company { font-size:20px; font-weight:700; }
+                        .address { font-size:12px; color:#666; }
+                        .report-title { text-align:center; margin-top:10px; margin-bottom:6px; font-size:18px; font-weight:700; }
+                        .report-meta { text-align:center; font-size:12px; color:#666; margin-bottom:12px; }
+                        .summary-card { border:1px solid #e0e0e0; padding:12px; border-radius:6px; background:#fafafa; max-width:720px; margin:0 auto 12px auto; }
+                        .summary-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee; }
+                        .summary-row:last-child { border-bottom: none; }
+                        table { width:100%; border-collapse:collapse; margin-top:14px; font-size:12px; }
+                        thead th { background:#f1f1f1; padding:8px; border:1px solid #ddd; }
+                        tbody td { padding:8px; border:1px solid #ddd; }
+                        tbody tr:nth-child(even) { background:#fcfcfc; }
+                        /* Make sure table headers repeat on each printed page */
+                        thead { display: table-header-group; }
+                        tfoot { display: table-footer-group; }
+                        tr { page-break-inside: avoid; }
+                        .footer-note { margin-top:18px; font-size:11px; color:#666; text-align:center; }
                     </style>
                 </head>
                 <body>
-                    <h2>${title}</h2>
-                    <div class="report-info">Generated on: ${today}</div>
-                    <div class="summary-box">${summaryHtml}</div>
+                    <div class="header">
+                        <img class="logo" src="image/favicon/favicon-32x32.png" alt="logo" onerror="this.style.display='none'" />
+                        <div>
+                            <div class="company">Hotel Booking</div>
+                            <div class="address">Address: Your Hotel Address — Contact: (000) 000-0000</div>
+                        </div>
+                    </div>
+                    <div class="report-title">${title}</div>
+                    <div class="report-meta">Generated on: ${today}</div>
+                    <div class="summary-card">
+                        ${summaryHtml}
+                    </div>
                     ${table}
+                    <div class="footer-note">This is a system generated report. Page <span class="pageNumber"></span></div>
                     <script>
+                        // attempt to print and close; let the user cancel if needed
                         window.print();
-                        window.close();
+                        window.onafterprint = function() { try { window.close(); } catch(e){} };
                     <\/script>
                 </body>
             </html>
